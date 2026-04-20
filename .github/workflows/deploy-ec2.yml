@@ -1,0 +1,122 @@
+name: "Deploy: EC2 Staging"
+
+on:
+  push:
+    branches:
+      - "staging"
+  workflow_dispatch:
+    inputs:
+      deploy_branch:
+        description: "Branch to deploy"
+        required: false
+        default: "staging"
+        type: string
+      rebuild_ui:
+        description: "Rebuild UI with external API URL"
+        required: false
+        default: true
+        type: boolean
+
+concurrency:
+  group: "deploy-ec2-staging-${{ github.ref }}"
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: staging
+    permissions:
+      contents: read
+
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@fa2e9d605c4eeb9fcad4c99c224cee0c6c7f3594 # v2.16.0
+        with:
+          egress-policy: audit
+
+      - name: Deploy to EC2 over SSH
+        env:
+          EC2_HOST: ${{ secrets.STAGING_EC2_HOST }}
+          EC2_PORT: ${{ secrets.STAGING_EC2_PORT }}
+          EC2_USER: ${{ secrets.STAGING_EC2_USER }}
+          EC2_SSH_PRIVATE_KEY: ${{ secrets.STAGING_EC2_SSH_PRIVATE_KEY }}
+          DEPLOY_PATH: ${{ secrets.STAGING_EC2_DEPLOY_PATH }}
+          APP_DOMAIN: ${{ secrets.STAGING_APP_DOMAIN }}
+          DEPLOY_BRANCH: ${{ github.event.inputs.deploy_branch }}
+          REBUILD_UI: ${{ github.event.inputs.rebuild_ui }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_SERVER_URL: ${{ github.server_url }}
+        run: |
+          set -euo pipefail
+
+          DEPLOY_BRANCH="${DEPLOY_BRANCH:-staging}"
+          REBUILD_UI="${REBUILD_UI:-true}"
+
+          if [[ -z "${EC2_HOST}" || -z "${EC2_USER}" || -z "${EC2_SSH_PRIVATE_KEY}" || -z "${DEPLOY_PATH}" ]]; then
+            echo "Missing required staging secrets. Required: STAGING_EC2_HOST, STAGING_EC2_USER, STAGING_EC2_SSH_PRIVATE_KEY, STAGING_EC2_DEPLOY_PATH"
+            exit 1
+          fi
+
+          PORT="${EC2_PORT:-22}"
+
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "${EC2_SSH_PRIVATE_KEY}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -p "${PORT}" -H "${EC2_HOST}" >> ~/.ssh/known_hosts
+
+          ssh -i ~/.ssh/id_rsa -p "${PORT}" "${EC2_USER}@${EC2_HOST}" \
+            "DEPLOY_PATH='${DEPLOY_PATH}' DEPLOY_BRANCH='${DEPLOY_BRANCH}' APP_DOMAIN='${APP_DOMAIN}' REBUILD_UI='${REBUILD_UI}' GITHUB_REPOSITORY='${GITHUB_REPOSITORY}' GITHUB_SERVER_URL='${GITHUB_SERVER_URL}' bash -s" <<'REMOTE'
+          set -euo pipefail
+
+          if [[ ! -d "${DEPLOY_PATH}" ]]; then
+            mkdir -p "${DEPLOY_PATH}"
+          fi
+
+          cd "${DEPLOY_PATH}"
+
+          if [[ ! -d .git ]]; then
+            echo "${DEPLOY_PATH} does not contain a git repository. Clone it once on the server, then re-run this workflow."
+            exit 1
+          fi
+
+          git fetch origin "${DEPLOY_BRANCH}"
+          if git show-ref --verify --quiet "refs/heads/${DEPLOY_BRANCH}"; then
+            git checkout "${DEPLOY_BRANCH}"
+          else
+            git checkout -b "${DEPLOY_BRANCH}" "origin/${DEPLOY_BRANCH}"
+          fi
+          git pull --ff-only origin "${DEPLOY_BRANCH}"
+
+          mkdir -p _data/api _data/postgres _data/valkey _data/neo4j
+          if command -v sudo >/dev/null 2>&1; then
+            sudo -n chown -R 1000:1000 _data/api || true
+          fi
+
+          if [[ "${REBUILD_UI}" == "true" ]]; then
+            if [[ -z "${APP_DOMAIN}" ]]; then
+              echo "APP_DOMAIN is required when rebuild_ui=true"
+              exit 1
+            fi
+
+            docker build \
+              --target prod \
+              --build-arg NEXT_PUBLIC_API_BASE_URL="https://${APP_DOMAIN}/api/v1" \
+              --build-arg NEXT_PUBLIC_API_DOCS_URL="https://${APP_DOMAIN}/api/v1/docs" \
+              --build-arg NEXT_PUBLIC_PROWLER_RELEASE_VERSION="${GITHUB_SHA:-latest}" \
+              -t prowler-ui-custom:latest \
+              ./ui
+
+            cat > docker-compose.override.yml <<'EOF'
+          services:
+            ui:
+              image: prowler-ui-custom:latest
+          EOF
+          fi
+
+          docker compose pull
+          docker compose up -d --remove-orphans
+          docker compose ps
+          REMOTE
