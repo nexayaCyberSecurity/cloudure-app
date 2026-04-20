@@ -19,7 +19,7 @@ on:
 
 concurrency:
   group: "deploy-ec2-staging-${{ github.ref }}"
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 permissions: {}
 
@@ -67,7 +67,14 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -p "${PORT}" -H "${EC2_HOST}" >> ~/.ssh/known_hosts
 
-          ssh -i ~/.ssh/id_rsa -p "${PORT}" "${EC2_USER}@${EC2_HOST}" \
+          ssh \
+            -i ~/.ssh/id_rsa \
+            -p "${PORT}" \
+            -o ServerAliveInterval=30 \
+            -o ServerAliveCountMax=10 \
+            -o TCPKeepAlive=yes \
+            -o ConnectTimeout=15 \
+            "${EC2_USER}@${EC2_HOST}" \
             "DEPLOY_PATH='${DEPLOY_PATH}' DEPLOY_BRANCH='${DEPLOY_BRANCH}' APP_DOMAIN='${APP_DOMAIN}' REBUILD_UI='${REBUILD_UI}' GITHUB_REPOSITORY='${GITHUB_REPOSITORY}' GITHUB_SERVER_URL='${GITHUB_SERVER_URL}' bash -s" <<'REMOTE'
           set -euo pipefail
 
