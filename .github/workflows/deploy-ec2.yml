@@ -26,7 +26,7 @@ permissions: {}
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 45
     environment: staging
     permissions:
       contents: read
@@ -36,6 +36,61 @@ jobs:
         uses: step-security/harden-runner@fa2e9d605c4eeb9fcad4c99c224cee0c6c7f3594 # v2.16.0
         with:
           egress-policy: audit
+
+      - name: Prepare SSH key
+        env:
+          EC2_HOST: ${{ secrets.STAGING_EC2_HOST }}
+          EC2_PORT: ${{ secrets.STAGING_EC2_PORT }}
+          EC2_SSH_PRIVATE_KEY: ${{ secrets.STAGING_EC2_SSH_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          PORT="${EC2_PORT:-22}"
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "${EC2_SSH_PRIVATE_KEY}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -p "${PORT}" -H "${EC2_HOST}" >> ~/.ssh/known_hosts
+
+      - name: Build UI image on runner and load on EC2
+        env:
+          EC2_HOST: ${{ secrets.STAGING_EC2_HOST }}
+          EC2_PORT: ${{ secrets.STAGING_EC2_PORT }}
+          EC2_USER: ${{ secrets.STAGING_EC2_USER }}
+          APP_DOMAIN: ${{ secrets.STAGING_APP_DOMAIN }}
+          REBUILD_UI: ${{ github.event.inputs.rebuild_ui }}
+        run: |
+          set -euo pipefail
+
+          REBUILD_UI="${REBUILD_UI:-true}"
+          PORT="${EC2_PORT:-22}"
+
+          if [[ "${REBUILD_UI}" != "true" ]]; then
+            echo "Skipping UI rebuild by request (rebuild_ui=false)."
+            exit 0
+          fi
+
+          if [[ -z "${APP_DOMAIN}" ]]; then
+            echo "APP_DOMAIN is required when rebuild_ui=true"
+            exit 1
+          fi
+
+          docker build \
+            --progress=plain \
+            --target prod \
+            --build-arg NEXT_PUBLIC_API_BASE_URL="https://${APP_DOMAIN}/api/v1" \
+            --build-arg NEXT_PUBLIC_API_DOCS_URL="https://${APP_DOMAIN}/api/v1/docs" \
+            --build-arg NEXT_PUBLIC_PROWLER_RELEASE_VERSION="${GITHUB_SHA:-latest}" \
+            -t prowler-ui-custom:latest \
+            ./ui
+
+          docker save prowler-ui-custom:latest | ssh \
+            -i ~/.ssh/id_rsa \
+            -p "${PORT}" \
+            -o ServerAliveInterval=30 \
+            -o ServerAliveCountMax=10 \
+            -o TCPKeepAlive=yes \
+            -o ConnectTimeout=15 \
+            "${EC2_USER}@${EC2_HOST}" \
+            "docker load"
 
       - name: Deploy to EC2 over SSH
         env:
@@ -61,11 +116,6 @@ jobs:
           fi
 
           PORT="${EC2_PORT:-22}"
-
-          install -m 700 -d ~/.ssh
-          printf '%s\n' "${EC2_SSH_PRIVATE_KEY}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -p "${PORT}" -H "${EC2_HOST}" >> ~/.ssh/known_hosts
 
           ssh \
             -i ~/.ssh/id_rsa \
@@ -103,31 +153,6 @@ jobs:
           fi
 
           if [[ "${REBUILD_UI}" == "true" ]]; then
-            if [[ -z "${APP_DOMAIN}" ]]; then
-              echo "APP_DOMAIN is required when rebuild_ui=true"
-              exit 1
-            fi
-
-            BUILD_START_TS=$(date +%s)
-
-            docker build \
-              --progress=plain \
-              --target prod \
-              --build-arg NEXT_PUBLIC_API_BASE_URL="https://${APP_DOMAIN}/api/v1" \
-              --build-arg NEXT_PUBLIC_API_DOCS_URL="https://${APP_DOMAIN}/api/v1/docs" \
-              --build-arg NEXT_PUBLIC_PROWLER_RELEASE_VERSION="${GITHUB_SHA:-latest}" \
-              -t prowler-ui-custom:latest \
-              ./ui &
-            BUILD_PID=$!
-
-            while kill -0 "${BUILD_PID}" 2>/dev/null; do
-              ELAPSED=$(( $(date +%s) - BUILD_START_TS ))
-              echo "UI image build in progress... ${ELAPSED}s elapsed"
-              sleep 30
-            done
-
-            wait "${BUILD_PID}"
-
             cat > docker-compose.override.yml <<'EOF'
           services:
             ui:
