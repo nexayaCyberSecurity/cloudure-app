@@ -76,18 +76,32 @@ export const createNewUser = async (formData: SignUpFormData) => {
       body: JSON.stringify(bodyData),
     });
 
-    const parsedResponse = await response.json();
+    const responseText = await response.text();
+    const parsedResponse = responseText ? JSON.parse(responseText) : null;
+
     if (!response.ok) {
-      return parsedResponse;
+      return (
+        parsedResponse ?? {
+          errors: [
+            {
+              source: { pointer: "" },
+              detail: `Request failed with status ${response.status}`,
+            },
+          ],
+        }
+      );
     }
 
-    return parsedResponse;
-  } catch (_error) {
+    return parsedResponse ?? { success: true, status: response.status };
+  } catch (error) {
     return {
       errors: [
         {
           source: { pointer: "" },
-          detail: "Network error or server is unreachable",
+          detail:
+            error instanceof Error
+              ? error.message
+              : "Network error or server is unreachable",
         },
       ],
     };

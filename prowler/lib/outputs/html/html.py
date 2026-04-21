@@ -174,7 +174,7 @@ class HTML(Output):
 
         .float-left {{ float: left !important; max-width: 100%; }}
     </style>
-    <title>Prowler - The Handy Cloud Security Tool</title>
+    <title>Cloudure - The Handy Cloud Security Tool</title>
     </head>
     <body>
     <div class="container-fluid">

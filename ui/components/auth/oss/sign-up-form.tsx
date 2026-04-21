@@ -78,6 +78,9 @@ export const SignUpForm = ({
     console.log("Will POST to:", `${apiBaseUrl}/users`);
     const newUser = await createNewUser(data);
     console.log("Sign-up response:", newUser);
+    if (newUser?.errors) {
+      console.log("Sign-up response errors:", newUser.errors);
+    }
 
     if (!newUser.errors) {
       toast({
