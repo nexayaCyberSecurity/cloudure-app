@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import { useForm, useWatch } from "react-hook-form";
 
 import { createNewUser } from "@/actions/auth";
-import { apiBaseUrl } from "@/lib";
 import { AuthDivider } from "@/components/auth/oss/auth-divider";
 import { AuthFooterLink } from "@/components/auth/oss/auth-footer-link";
 import { AuthLayout } from "@/components/auth/oss/auth-layout";
@@ -72,15 +71,7 @@ export const SignUpForm = ({
   const isLoading = form.formState.isSubmitting;
 
   const onSubmit = async (data: SignUpFormData) => {
-    console.log("Sign-up submit triggered with data:", data);
-    console.log("Form errors:", form.formState.errors);
-    console.log("API Base URL:", apiBaseUrl);
-    console.log("Will POST to:", `${apiBaseUrl}/users`);
     const newUser = await createNewUser(data);
-    console.log("Sign-up response:", newUser);
-    if (newUser?.errors) {
-      console.log("Sign-up response errors:", newUser.errors);
-    }
 
     if (!newUser.errors) {
       toast({
@@ -222,15 +213,6 @@ export const SignUpForm = ({
             aria-disabled={isLoading}
             className="w-full"
             disabled={isLoading}
-            onClick={() => {
-              console.log("Sign-up button clicked");
-              console.log("Current form state:", {
-                isValid: form.formState.isValid,
-                isDirty: form.formState.isDirty,
-                errors: form.formState.errors,
-                isSubmitting: form.formState.isSubmitting,
-              });
-            }}
           >
             {isLoading ? "Loading..." : "Sign up"}
           </Button>
