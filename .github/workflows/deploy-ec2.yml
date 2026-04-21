@@ -161,9 +161,15 @@ jobs:
             ui:
               image: prowler-ui-custom:latest
           EOF
+          else
+            rm -f docker-compose.override.yml
           fi
 
-          docker compose pull
+          if [[ "${REBUILD_UI}" == "true" ]]; then
+            docker compose pull api-init api worker worker-beat postgres valkey neo4j mcp-server
+          else
+            docker compose pull
+          fi
 
           if ! docker compose up -d --remove-orphans; then
             echo "docker compose up failed. Collecting diagnostics..."
