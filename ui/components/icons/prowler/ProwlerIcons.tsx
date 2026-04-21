@@ -9,9 +9,9 @@ export const ProwlerExtended: React.FC<IconSvgProps> = ({
   ...props
 }) => {
   return (
-    <svg xmlns="http://www.w3.org/2000/svg" width="500" height="86" viewBox="0 0 500 86">
+    // <svg xmlns="http://www.w3.org/2000/svg" width="500" height="86" viewBox="0 0 500 86">
       <image href="/prowler-logo.png" x="0" y="0" width="500" height="86" />
-    </svg>
+    // </svg>
     // <svg
     //   className="text-prowler-black dark:text-prowler-white"
     //   xmlns="http://www.w3.org/2000/svg"
@@ -39,9 +39,9 @@ export const ProwlerShort: React.FC<IconSvgProps> = ({
   height,
   ...props
 }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="500" height="86" viewBox="0 0 500 86">
+  // <svg xmlns="http://www.w3.org/2000/svg" width="500" height="86" viewBox="0 0 500 86">
     <image href="/prowler-logo-small.png" x="0" y="0" width="500" height="86" />
-  </svg>
+  // </svg>
   // <svg
   //   className="text-prowler-black dark:text-prowler-white"
   //   xmlns="http://www.w3.org/2000/svg"
