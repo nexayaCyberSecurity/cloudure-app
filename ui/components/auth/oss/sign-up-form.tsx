@@ -71,7 +71,10 @@ export const SignUpForm = ({
   const isLoading = form.formState.isSubmitting;
 
   const onSubmit = async (data: SignUpFormData) => {
+    console.log("Sign-up submit triggered with data:", data);
+    console.log("Form errors:", form.formState.errors);
     const newUser = await createNewUser(data);
+    console.log("Sign-up response:", newUser);
 
     if (!newUser.errors) {
       toast({
@@ -213,6 +216,15 @@ export const SignUpForm = ({
             aria-disabled={isLoading}
             className="w-full"
             disabled={isLoading}
+            onClick={() => {
+              console.log("Sign-up button clicked");
+              console.log("Current form state:", {
+                isValid: form.formState.isValid,
+                isDirty: form.formState.isDirty,
+                errors: form.formState.errors,
+                isSubmitting: form.formState.isSubmitting,
+              });
+            }}
           >
             {isLoading ? "Loading..." : "Sign up"}
           </Button>
