@@ -180,4 +180,29 @@ jobs:
           fi
 
           docker compose ps
+
+          healthcheck_url() {
+            url="$1"
+            if command -v curl >/dev/null 2>&1; then
+              curl -fsS --max-time 15 "$url" >/dev/null
+            else
+              wget -q -O /dev/null "$url"
+            fi
+          }
+
+          if ! healthcheck_url "http://127.0.0.1:8080/api/v1/"; then
+            echo "API health endpoint unreachable after deploy. Collecting diagnostics..."
+            docker compose ps || true
+            docker compose logs --tail=200 api postgres valkey neo4j || true
+            exit 1
+          fi
+
+          if ! healthcheck_url "http://127.0.0.1:3000/"; then
+            echo "UI endpoint unreachable after deploy. Collecting diagnostics..."
+            docker compose ps || true
+            docker compose logs --tail=200 ui || true
+            exit 1
+          fi
+
+          echo "Post-deploy health checks passed (API and UI reachable on EC2)."
           REMOTE
