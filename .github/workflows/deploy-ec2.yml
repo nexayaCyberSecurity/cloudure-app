@@ -136,6 +136,14 @@ jobs:
           fi
 
           docker compose pull
-          docker compose up -d --remove-orphans
+
+          if ! docker compose up -d --remove-orphans; then
+            echo "docker compose up failed. Collecting diagnostics..."
+            docker compose ps || true
+            docker compose logs --tail=200 api postgres valkey neo4j || true
+            docker inspect --format='{{json .State.Health}}' cloudure-staging-api-1 || true
+            exit 1
+          fi
+
           docker compose ps
           REMOTE
