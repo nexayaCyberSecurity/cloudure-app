@@ -116,7 +116,7 @@ export function ThreatScore({
       className="flex min-h-[372px] w-full flex-col justify-between lg:max-w-[312px]"
     >
       <CardHeader>
-        <CardTitle>Prowler ThreatScore</CardTitle>
+        <CardTitle>Cloudure ThreatScore</CardTitle>
       </CardHeader>
 
       <CardContent className="flex flex-1 flex-col justify-between space-y-4">
