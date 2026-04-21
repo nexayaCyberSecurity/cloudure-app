@@ -40,7 +40,7 @@ export const ProwlerShort: React.FC<IconSvgProps> = ({
   ...props
 }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width="500" height="86" viewBox="0 0 500 86">
-    <image href="/prowler-short.png" x="0" y="0" width="500" height="86" />
+    <image href="/prowler-logo-small.png" x="0" y="0" width="500" height="86" />
   </svg>
   // <svg
   //   className="text-prowler-black dark:text-prowler-white"

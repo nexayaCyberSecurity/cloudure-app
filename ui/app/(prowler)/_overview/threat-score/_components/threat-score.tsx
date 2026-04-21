@@ -193,7 +193,7 @@ export function ThreatScore({
             className="items-center justify-center"
           >
             <p className="text-text-neutral-secondary text-sm">
-              Prowler ThreatScore Data Unavailable
+              Cloudure ThreatScore Data Unavailable
             </p>
           </Card>
         )}

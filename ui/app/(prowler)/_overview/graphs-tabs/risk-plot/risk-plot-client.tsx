@@ -72,7 +72,7 @@ export function RiskPlotClient({ data }: RiskPlotClientProps) {
           <span style={{ color: scoreColor, fontWeight: "bold" }}>
             {point.x}%
           </span>{" "}
-          Prowler ThreatScore
+          Cloudure ThreatScore
         </p>
         <div className="mt-2">
           <AlertPill value={point.y} />
