@@ -37,6 +37,9 @@ jobs:
         with:
           egress-policy: audit
 
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Prepare SSH key
         env:
           EC2_HOST: ${{ secrets.STAGING_EC2_HOST }}
