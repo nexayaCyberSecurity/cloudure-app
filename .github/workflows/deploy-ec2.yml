@@ -108,13 +108,25 @@ jobs:
               exit 1
             fi
 
+            BUILD_START_TS=$(date +%s)
+
             docker build \
+              --progress=plain \
               --target prod \
               --build-arg NEXT_PUBLIC_API_BASE_URL="https://${APP_DOMAIN}/api/v1" \
               --build-arg NEXT_PUBLIC_API_DOCS_URL="https://${APP_DOMAIN}/api/v1/docs" \
               --build-arg NEXT_PUBLIC_PROWLER_RELEASE_VERSION="${GITHUB_SHA:-latest}" \
               -t prowler-ui-custom:latest \
-              ./ui
+              ./ui &
+            BUILD_PID=$!
+
+            while kill -0 "${BUILD_PID}" 2>/dev/null; do
+              ELAPSED=$(( $(date +%s) - BUILD_START_TS ))
+              echo "UI image build in progress... ${ELAPSED}s elapsed"
+              sleep 30
+            done
+
+            wait "${BUILD_PID}"
 
             cat > docker-compose.override.yml <<'EOF'
           services:
